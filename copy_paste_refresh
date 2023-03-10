@@ -1,0 +1,66 @@
+function nzgw_pricing() {
+
+ refresh(); 
+
+ // wait for refresh
+  var lock = LockService.getScriptLock(); 
+  lock.waitLock(300000); 
+  SpreadsheetApp.flush();
+  lock.releaseLock();
+
+  
+var ss = SpreadsheetApp.openById("1ncuJd9cBEk9CbXH6PBncHcesvapIpwwJd_dEWb_Ou30")
+
+// delete existing rows
+var max_row = ss.getSheetByName("NZGW_weekly").getLastRow();
+Logger.log(max_row);
+ss.getSheetByName("NZGW_weekly").deleteRows(6,max_row-7);
+
+
+// // set sheet names
+var sg_extract = ss.getSheetByName("Extract 1");
+var sg_four = ss.getSheetByName("NZGW_weekly")
+
+
+// copy extract to Sheet5
+sg_extract.getDataRange().copyTo(sg_four.getRange("B6"), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+// delete header row
+ss.getSheetByName("NZGW_weekly").deleteRows(6)
+
+const now = new Date();
+dFormat = Utilities.formatDate(now, 'NZ', 'MMMM dd, yyyy HH:mm:ss');
+Logger.log(dFormat)
+sg_four.getRange('A1').setValue('Updated '+dFormat);
+
+
+
+}
+
+// refreshes Big Query
+function refresh() {
+  
+  SpreadsheetApp.enableAllDataSourcesExecution();
+  
+  var sh = SpreadsheetApp.getActive();
+  sh.refreshAllDataSources();
+  
+}
+
+
+function createTimeTriggerNZGWtrigger() {
+ //Create a trigger to run a function called "runScript"
+ ScriptApp.newTrigger("nzgw_pricing")
+   //The trigger is time based
+   .timeBased()
+   //Configure when to run the trigger
+   
+   .onWeekDay(ScriptApp.WeekDay.TUESDAY)
+   .atHour(10)
+   .nearMinute(30)
+   //Finally create the trigger
+   .create();
+}
+
+
+
+
