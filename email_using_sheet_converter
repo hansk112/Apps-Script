@@ -1,0 +1,195 @@
+function emailSheet(){
+
+refresh();
+
+// var html = HtmlService.createTemplateFromFile('new_xmas');
+
+var ss = SpreadsheetApp.getActiveSpreadsheet()
+var ws = ss.getSheetByName('Extract 1');
+
+var yesterday = ws.getRange('V24').getValues();
+var days_out  = ws.getRange('V20').getValues();
+
+// var range     = ws.getRange('P27:X90');
+
+// var htmltable = SheetConverter_XMAS.convertRange2html(range);
+var yesterday_text = 'Sell Through Summary at ' + yesterday + " " + days_out + " days till Xmas";
+var daysout = days_out;
+
+//  const html_for_email = html.evaluate().getContent();
+
+
+var aliases = GmailApp.getAliases();
+Logger.log(aliases);
+
+//christmas-seasonal 
+ GmailApp.sendEmail("seasonal@countdown.co.nz","Easter Sell Through - "+ days_out +" days out ", "Please open in client that supports HTML",{   
+                            htmlBody: SheetConverter_XMAS.convertRange2html(ws.getRange('V28:AD88')),
+                            name: "Analytics & Insights",
+                            from: aliases[0],bcc:"hans.kalders@countdown.co.nz"
+                            });
+
+}
+
+// refreshes every day at 7.00am
+
+function createRefreshSheet_700am() {
+ ScriptApp.newTrigger("refresh")
+ .timeBased()
+ .inTimezone("Pacific/Auckland")
+ .everyDays(1)
+ .atHour(7)
+ .nearMinute(0)
+
+ 
+ .create();
+   
+}
+
+// emails every day at 7.10am
+
+function createEmailSheet_710am() {
+ ScriptApp.newTrigger("emailSheet")
+ .timeBased()
+ .inTimezone("Pacific/Auckland")
+ .everyDays(1)
+ .atHour(7)
+ .nearMinute(10)
+
+ 
+ .create();
+   
+}
+
+
+// refresh the google sheet
+
+function refresh() {
+  
+  SpreadsheetApp.enableAllDataSourcesExecution();
+  
+  var sh = SpreadsheetApp.getActive();
+  sh.refreshAllDataSources();
+  
+}
+
+
+
+
+
+// function myFunction() {
+
+
+// var templ = HtmlService.createTemplateFromFile('christmas');
+
+// var ss = SpreadsheetApp.getActiveSpreadsheet()
+// var sheet1=ss.getSheetByName('Extract 1');
+// var emailAddress = 'hans.kalders@countdown.co.nz'  //sheet1.getRange('hans.kalders@countdown.co.nz').getValue();
+// var subject = sheet1.getRange(2,2).getValue();
+// var message = sheet1.getRange("M11").getValue();
+// // MailApp.sendEmail(emailAddress, subject, message);
+
+
+//   // const charts = ss.getBlob(); 
+  
+//   // // setup some variables for our email
+//   // const chartBlobs = new Array(); 
+//   // const emailImages = {};
+//   // let emailBody = "Charts<br>"; 
+  
+//   // charts.forEach(function(chart, i){
+//   //   chartBlobs[i] = chart.getAs("image/png");
+//   //   emailBody += "<p align='center'><img src='cid:chart"+i+"'></p>"; // Alligning the chart to the center of the body in the email
+//   //   emailImages["chart"+i] = chartBlobs[i];
+//   // });
+
+// var message = templ.evaluate().getContent();
+
+// MailApp.sendEmail({
+//     to: "hans.kalders@countdown.co.nz",
+//     subject: "Your application is approved!",
+//     htmlBody: message
+//   });
+
+
+  
+// }
+
+
+// function emailChartSourceImage(){
+//   const sheet = SpreadsheetApp.getActiveSheet(); 
+//   const charts = sheet.getCharts();
+  
+//   // setup some variables for our email
+//   const chartBlobs = new Array(); 
+//   const emailImages = {};
+//   let emailBody = "Charts<br>"; 
+  
+//   charts.forEach(function(chart, i){
+//     chartBlobs[i] = chart.getAs("image/png");
+//     emailBody += "<p align='center'><img src='cid:chart"+i+"'></p>"; // Alligning the chart to the center of the body in the email
+//     emailImages["chart"+i] = chartBlobs[i];
+//   });
+  
+//   MailApp.sendEmail({
+//     to: "hans.kalders@countdown.co.nz",
+//     subject: "Chart for average marks per subject",
+//     htmlBody: emailBody,
+//     inlineImages:emailImages}); 
+// }
+
+// function sendMail(){
+// // mail images
+//   const sheet = SpreadsheetApp.getActiveSheet(); 
+//   const range = sheet.getRange("A1:I53");
+
+//   const charts = sheet.getCharts();
+//   const chartBlobs = new Array(); 
+//   const emailImages = {};
+//   let emailBody = ""; // This is the text between your cell range and the inline images
+
+// //Creates new temporary slideshow so each slide can hold the image of the charts
+// //This is needed as pulling charts direct from GSheets to the email may leave out important data points
+//   var slides = SlidesApp.create("sample"); // Added
+//   var slide = slides.getSlides()[0]; // Added
+
+//   charts.forEach(function(chart, i){
+//     var image = slide.insertSheetsChartAsImage(charts[i]); // Insert chart into our temporary slideshow "sample"
+//     //chartBlobs[i] = chart.getAs("image/png"); //Pull direct from table, this may leave out important data points
+//     chartBlobs[i]= image.getAs("image/png").setName("chartBlob"+i); // Pull charts from temporary slideshow as image files
+//     emailBody += "<p align='left'><img src='cid:chart"+i+"' width='60%' height='40%'></p>"; // Align the chart images to the left of the body in the email
+//     //****reduce image size to 70% here**** 
+//     emailImages["chart"+i] = chartBlobs[i];
+
+//   });
+
+//   var htmltable = SheetConverter.convertRange2html(range); //make sure your library identifier is named SheetConverter
+
+// MailApp.sendEmail({
+//   //from: field is whoever runs the script
+//   to: "EXAMPLE@EXAMPLE.COM",   // change to: field to whatever email you want
+//   subject: sheet.getRange('B2').getValue(),   // subject: "***TYPE SUBJECT HERE***"
+//   htmlBody: htmltable + emailBody, //htmlBody: ***CONCATENATE TABLES AND CHARTS BY '+'***
+//   inlineImages:emailImages}); 
+
+// DriveApp.getFileById(slides.getId()).setTrashed(true); // Deletes the temporary slideshow that was holding your charts
+// }
+
+
+
+// function getCandidateFromRow(row)
+// {
+//   var values = SpreadsheetApp.getActiveSheet().getRange(row, 1,row,3).getValues();
+//   var rec = values[0];
+  
+//   var candidate = 
+//       {
+//         first_name: rec[0],
+//         last_name : rec[1],
+//         email: rec[2] 
+//       };
+  
+//    candidate.name = candidate.first_name+' '+candidate.last_name;
+  
+//    return candidate;
+// }
