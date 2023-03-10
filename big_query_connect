@@ -1,0 +1,247 @@
+function promoFrequencyUpdate(){
+
+   
+   const projectId = 'gcp-wow-food-de-pel-prod';
+
+   const request = {
+    query: 'select pel_week  from `gcp-wow-food-de-pel-prod.datamart.dim_date` '+
+           'where date = date_trunc(current_date(), week);',
+    useLegacySql: false
+  };
+  let queryResults = BigQuery.Jobs.query(request, projectId);
+  const jobId = queryResults.jobReference.jobId;
+
+  let rows = queryResults.rows;
+
+
+   var pel_week = rows;
+
+     // Append the results.
+  var data = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) {
+    const cols = rows[i].f;
+    data[i] = new Array(cols.length);
+    for (let j = 0; j < cols.length; j++) {
+      data[i][j] = cols[j].v;
+      Logger.log(data[i][j]);
+      pel_week =  data[i][j]
+    }
+  }
+   
+   Logger.log(pel_week);
+
+   var pel_week_12_wk =pel_week+' - 12wk';
+   var pel_week_26_wk =pel_week+' - 26wk';
+   
+   Logger.log(pel_week_12_wk);
+
+   Logger.log(pel_week_26_wk);
+
+  var spreadsheet = SpreadsheetApp.getActive();
+  // create date
+  
+
+// format sheets and highlight last pel week yellow
+format6Past6FuturePELweek();
+format26weekPELweek(); 
+
+
+// // paste data to sheet
+// 750 rows below
+
+ spreadsheet.insertSheet();
+ spreadsheet.getActiveSheet().setName(pel_week_12_wk);
+ spreadsheet.getRange('\'6wkPast_6wkFut\'!A1:AA1050').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+ spreadsheet.getRange('\'6wkPast_6wkFut\'!A1:AA1050').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+ spreadsheet.getRange('\'6wkPast_6wkFut\'!A1:AA1050').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
+
+ spreadsheet.insertSheet();
+ spreadsheet.getActiveSheet().setName(pel_week_26_wk);
+ spreadsheet.getRange('\'26wkPast_6wkFut\'!A1:AI750').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+ spreadsheet.getRange('\'26wkPast_6wkFut\'!A1:AI750').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+ spreadsheet.getRange('\'26wkPast_6wkFut\'!A1:AI750').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
+
+ 
+  var sheet = SpreadsheetApp.getActive().getSheetByName(pel_week_12_wk);
+  sheet.activate();
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(9);
+
+  var sheet =  SpreadsheetApp.getActive().getSheetByName(pel_week_26_wk);
+  sheet.activate();
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(9);
+ 
+
+
+}
+
+function format6Past6FuturePELweek(){
+
+// get last week pel week from big query
+   const projectId = 'gcp-wow-food-de-pel-prod';
+   const request = {
+    query: 'select pel_week  from `gcp-wow-food-de-pel-prod.datamart.dim_date` '+
+           'where date = date_trunc(current_date(), week);',
+    useLegacySql: false
+  };
+  let queryResults = BigQuery.Jobs.query(request, projectId);
+  const jobId = queryResults.jobReference.jobId;
+  let rows = queryResults.rows;
+   var pel_week = rows;
+
+     // Append the results.
+  var data = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) {
+    const cols = rows[i].f;
+    data[i] = new Array(cols.length);
+    for (let j = 0; j < cols.length; j++) {
+      data[i][j] = cols[j].v;
+      Logger.log(data[i][j]);
+      pel_week =  data[i][j]
+    }
+  }
+   
+   Logger.log(pel_week);
+ 
+
+var ss6past6future = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("6wkPast_6wkFut");
+
+ss6past6future .setFrozenRows(1);
+
+// get data range and activate
+var range = ss6past6future.getDataRange();
+range.activate();
+
+// format range green and grey based on active range
+  var banding = ss6past6future.getActiveRange().getBandings()[0];
+  banding.setHeaderRowColor('#bdbdbd')
+  .setFirstRowColor('#ffffff')
+  .setSecondRowColor('#f3f3f3')
+  .setFooterRowColor(null);
+  banding = ss6past6future.getActiveRange().getBandings()[0];
+  banding.setHeaderRowColor('#8bc34a')
+  .setFirstRowColor('#ffffff')
+  .setSecondRowColor('#eef7e3')
+  .setFooterRowColor(null);
+  
+// set pel week to last week and find pel week on worksheet  
+var toSearch = pel_week;
+var tf = ss6past6future.createTextFinder(toSearch);
+
+var all = tf.findAll();
+
+// loop through sheet to find pel week
+ for (var i = 0; i < all.length; i++) {
+     Logger.log('The sheet %s, cell %s, has the value %s.', all[i].getSheet().getName(), all[i].getA1Notation(), all[i].getValue());
+     
+      // set pel week to cellNota
+      var cellNota = all[i].getA1Notation();
+//var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Expenses");
+
+}
+
+// set cell format notation and background to yellow
+var rngFormat = ss6past6future.getRange(cellNota);
+rngFormat.setBackground('yellow');
+
+}
+
+
+function format26weekPELweek(){
+
+// get last week pel week from big query
+   const projectId = 'gcp-wow-food-de-pel-prod';
+   const request = {
+    query: 'select pel_week  from `gcp-wow-food-de-pel-prod.datamart.dim_date` '+
+           'where date = date_trunc(current_date(), week);',
+    useLegacySql: false
+  };
+  let queryResults = BigQuery.Jobs.query(request, projectId);
+  const jobId = queryResults.jobReference.jobId;
+  let rows = queryResults.rows;
+   var pel_week = rows;
+
+     // Append the results.
+  var data = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) {
+    const cols = rows[i].f;
+    data[i] = new Array(cols.length);
+    for (let j = 0; j < cols.length; j++) {
+      data[i][j] = cols[j].v;
+      Logger.log(data[i][j]);
+      pel_week =  data[i][j]
+    }
+  }
+   
+   Logger.log(pel_week);
+ 
+
+var ss26past = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("26wkPast_6wkFut");
+
+ss26past.setFrozenRows(1);
+
+// get data range and activate
+var range = ss26past.getDataRange();
+range.activate();
+
+// format range green and grey based on active range
+var banding = ss26past.getActiveRange().getBandings()[0];
+  banding.setHeaderRowColor('#8bc34a')
+  .setFirstRowColor('#ffffff')
+  .setSecondRowColor('#eef7e3')
+  .setFooterRowColor(null);
+
+  // var abanding = ss26past.getActiveRange().getBandings()[0];
+
+  // //abanding.setHeaderRowColor('green')
+  // abanding.setFirstRowColor('#ffffff');
+  
+  // abanding.setFirstRowColor('#ffffff');
+  
+  // abanding.setSecondRowColor('#f3f3f3');
+  // abanding.setFooterRowColor(null);
+  // abanding = ss26past.getActiveRange().getBandings()[0];
+  // abanding.setHeaderRowColor('#8bc34a')
+  // .setFirstRowColor('#ffffff')
+  // .setSecondRowColor('#eef7e3')
+  // .setFooterRowColor(null);
+
+
+
+  
+
+  
+// set pel week to last week and find pel week on worksheet  
+var toSearch = pel_week;
+var tf = ss26past.createTextFinder(toSearch);
+
+var all = tf.findAll();
+
+// loop through sheet to find pel week
+ for (var i = 0; i < all.length; i++) {
+     Logger.log('The sheet %s, cell %s, has the value %s.', all[i].getSheet().getName(), all[i].getA1Notation(), all[i].getValue());
+     
+      // set pel week to cellNota
+      var cellNota = all[i].getA1Notation();
+//var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Expenses");
+
+}
+
+// set cell format notation and background to yellow
+var rngFormat = ss26past.getRange(cellNota);
+rngFormat.setBackground('yellow');
+
+}
+
+
+
+
+function createPromorTrigger() {
+ScriptApp.newTrigger('promoFrequencyUpdate') 
+ .timeBased()
+ .atHour(10)
+ .onWeekDay(ScriptApp.WeekDay.MONDAY)
+ .create();
+ 
+}
