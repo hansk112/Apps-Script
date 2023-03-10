@@ -1,0 +1,522 @@
+
+function new_wdl_output_sheet() {
+  
+  // refresh big query extract
+  refresh();
+
+   date = new Date();
+   fileDate = (Utilities.formatDate(startOfWeek(date),"NZ","yyyy-MM-dd") );
+   console.log(fileDate);
+  var drive_folder_id = "1Wrp6gn0fy0qrtXsz9H_JLT-oK16VNS63";
+  var destFolder = DriveApp.getFolderById(drive_folder_id); 
+  // create copy of workbook and get ID
+  var nFile = DriveApp.getFileById("1HZbIypC78gUAO8HRbWKA1lFYC5V3v0jzlGUnRdqQBrs").makeCopy("Produce Forecast " + fileDate, destFolder).getId(); 
+  console.log(nFile); 
+ 
+  var ss = SpreadsheetApp.openById(nFile);
+  var sheet = ss.getSheetByName("input_sheet")
+  SpreadsheetApp.flush();
+  var lrow = sheet.getLastRow();
+  Logger.log(lrow);
+  
+  // copy and paste formulas of input_sheet, required for import to TPRP
+  sheet.getRange("2:5").copyTo(sheet.getRange("2:5"),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false)
+  sheet.getRange("A5:AO"+ lrow).copyTo(sheet.getRange("A5:AO"+ lrow),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false)
+  
+  // copy an paste column A and B and set date format
+  sheet.getRange("A:B").copyTo(sheet.getRange("A:B"),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false)
+  sheet.getRange("B:B").setNumberFormat("dd/mm/yyyy");
+  
+  var sheet_article_summary = ss.getSheetByName("article_summary")
+
+  // copy and paste actual values used for rank
+  sheet_article_summary.getRange("D:D").copyTo(sheet_article_summary.getRange("D:D"),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false);
+
+  // copy and paste actual and current forecast values
+  sheet_article_summary.getRange("T:AF").copyTo(sheet_article_summary.getRange("T:AF"),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false);
+
+
+  // input download link to xlsx format
+  var sheet_Name = "input_sheet"  
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheet_Name)
+  var sheetNameId = sheet.getSheetId().toString();
+  params= nFile+"/export?gid="+sheetNameId +"&format=xlsx"
+  var url = "https://docs.google.com/spreadsheets/d/"+ params
+
+  sheet_article_summary.getRange("AH1").setValue(url);
+
+}
+
+function update_forecast(){
+
+var ss = SpreadsheetApp.getActiveSpreadsheet()
+
+var sheet_article_summary = ss.getSheetByName("article_summary");
+var sheet_input = ss.getSheetByName("input_sheet");
+
+var lrow = sheet_input.getLastRow();
+Logger.log(lrow);
+sheet_article_summary.getRange("AH6:AU"+ lrow).copyTo(sheet_input.getRange("AB6:AO"+lrow),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false);
+
+}
+
+
+// refreshes Big Query
+function refresh() {
+  
+  SpreadsheetApp.enableAllDataSourcesExecution();
+  
+  var sh = SpreadsheetApp.getActive();
+  sh.refreshAllDataSources();
+  
+}
+
+// get start of week
+function startOfWeek(date)
+  {
+     
+    var lastday = date.getDate() - (date.getDay() - 1) + 6+8;
+    return new Date(date.setDate(lastday));
+ 
+  }
+
+function endOfLastWeek(date)
+  {
+     
+    var lastday = date.getDate() - (date.getDay());
+    return new Date(date.setDate(lastday));
+ 
+  }  
+
+/**
+ * Creates two time-driven triggers.
+ * @see https://developers.google.com/apps-script/guides/triggers/installable#time-driven_triggers
+ */
+function createTimeDrivenTriggers() {
+
+  // Trigger every hour
+  ScriptApp.newTrigger('check_forecast_file_and_model_date')
+      .timeBased()
+      .everyHours(1)
+      // .atHour(1)
+      .create();
+}
+
+
+
+function check_forecast_file_and_model_date(){
+
+
+  // connect to Big Query find mas financial week end date
+   const projectId = 'gcp-wow-wwnz-cd-ml-prod';
+   const request = {
+    query: 'SELECT MAX(FinancialWeekEndDate)  from `gcp-wow-wwnz-cd-ml-prod.wdl.wdl_forecast_results_latest`  where StoreId=9353 '
+           ,
+    useLegacySql: false
+  };
+  let queryResults = BigQuery.Jobs.query(request, projectId);
+  // Logger.log(queryResults)
+  
+  let rows = queryResults.rows;
+
+  var data = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) {
+    const cols = rows[i].f;
+    data[i] = new Array(cols.length);
+    for (let j = 0; j < cols.length; j++) {
+      data[i][j] = cols[j].v;
+      // Logger.log(data[i][j]);
+      model_date =  data[i][j]
+    }
+  }
+
+date = new Date();   
+weekEnd = (Utilities.formatDate(endOfLastWeek(date),"NZ","yyyy-MM-dd") );
+weekStart = (Utilities.formatDate(startOfWeek(date),"NZ","yyyy-MM-dd") );
+var produce_file = "Produce Forecast " + weekStart;
+
+//Check files in forecasting folder
+// Set drive folder to forecasting folder
+var folder = DriveApp.getFolderById("1Wrp6gn0fy0qrtXsz9H_JLT-oK16VNS63"); 
+
+Logger.log("Produce File Name: "+produce_file+" Model Date: "+model_date+" Week End Date: "+weekEnd);
+// get Files in Forecasting Folder      
+var contents = folder.getFiles();
+
+var cnt = 0;
+var file;
+
+// Loop through files in Forecasting Folder
+    while (contents.hasNext()) {
+        var file = contents.next();
+        cnt++;
+        Logger.log(file.getName())
+// if current file exists in forecast folder AND model and weekend date match
+// then end looop
+// file is not created with forecast start date for example, Produce Forecast - YYYY-MM-DD 
+// and model date is equal to last weekend date
+// then create the forecast out put file
+             if(model_date==weekEnd  && produce_file==file.getName() ) {
+                Logger.log("file already exists")               
+                  break;
+
+              }
+              else if (model_date==weekEnd  && produce_file!=file.getName() )
+              {
+                Logger.log("file generated")
+                new_wdl_output_sheet();
+                  // create one out put file 
+                  break;
+
+              }
+              
+              else {
+                Logger.log("no file generated")
+
+              }
+
+
+    };
+ 
+
+
+}
+
+
+
+// function sheetToCsv()
+// {
+//     var ssID = SpreadsheetApp.getActiveSpreadsheet().getId();
+//     var sheet_Name = "input_sheet"
+  
+  
+//     var requestData = {"method": "GET", "headers":{"Authorization":"Bearer "+ScriptApp.getOAuthToken()}};
+  
+//       var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheet_Name)
+//       var sheetNameId = sheet.getSheetId().toString();
+  
+//       params= ssID+"/export?gid="+sheetNameId +"&format=csv"
+//       Logger.log(params);
+//       var url = "https://docs.google.com/spreadsheets/d/"+ params
+//       Logger.log(url)
+//       var result = UrlFetchApp.fetch(url, requestData);  
+  
+//    var resource = {
+//   title: sheet_Name+".csv",
+//   mimeType: "application/vnd.csv",
+//   parents: [{ id: folder_id }]
+//      }
+//    var folder_id ='1Wrp6gn0fy0qrtXsz9H_JLT-oK16VNS63';
+       
+
+
+//    Drive.Files.insert(resource,result)
+  
+// } 
+
+
+// function run_wdl_forecast_output() {
+
+// // checkFileExists();
+
+// var ss = SpreadsheetApp.getActiveSpreadsheet();
+// var sh = ss.getSheetByName("input_sheet");
+// sh.activate();
+
+// refresh();                        // refresh Connected sheets
+// pullFormulaDownInputSheet();      
+// pullFormulaDownArticleSummary();
+// cloneGoogleSheet();
+
+
+// }
+
+
+// // updates ranges for formulas on columns A and B on input sheet
+
+// function pullFormulaDownInputSheet() {
+//   var sheetName = "input_sheet";
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var sheet = ss.getSheetByName(sheetName);
+//   sheet.getRange('B6').setFormula('=INDEX(SourceData!$K:$K,MATCH(D6,SourceData!$A:$A,0))'); 
+//   sheet.getRange('A6').setFormula('=round(iferror(AVERAGEIFS(SourceData!$L:$L,SourceData!$A:$A,D6,SourceData!$B:$B,C6),0),2)'); 
+
+//   ss.getActiveSheet().getColumnGroup(1, 1).expand();
+//   var col = 3;//e.g. for column 2 ("B"), to obtain its last row
+//   var row = 6;
+
+//   var Direction = SpreadsheetApp.Direction;
+
+//   var lastRow = sheet.getRange(row,col).getNextDataCell(Direction.DOWN).getRow();//last row of column 'xcol'
+
+//   Logger.log(lastRow);
+
+//   // var lr = sheet.getLastRow();
+
+//   var fillDownRangeFinancialWeekStartDate = sheet.getRange(6,2,lastRow-5);
+//   var fillDownRangePrice                  = sheet.getRange(6,1,lastRow-5);
+
+//    sheet.getRange('B6').copyTo(fillDownRangeFinancialWeekStartDate);
+
+//    sheet.getRange('A6').copyTo(fillDownRangePrice);
+
+//    ss.getActiveSheet().getColumnGroup(1, 1).collapse();
+// }
+
+// // updates ranges for formulas on columns A and B on input sheet
+
+// function pullFormulaDownArticleSummary() {
+  
+//   var sheetName = "article_summary";
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var sheet_article_summary = ss.getSheetByName(sheetName);
+//   var sheet_input = ss.getSheetByName("input_sheet");
+
+
+//   var last_row_unique_scan_codes = ss.getSheetByName("SourceData").getRange("R3").getValue(); // calculated
+//   var last_row_input_sheet = sheet_input.getLastRow();
+//     sheet_article_summary.getColumnGroup(3, 1).expand(); 
+
+//   // set unique formula for article summary tab
+//   sheet_article_summary.getRange(5,4).setFormula('=UNIQUE(input_sheet!C6:C' + last_row_input_sheet + ')');
+ 
+//  // set lookup product description
+//  //=INDEX(input_sheet!$E:$E,match($D5,input_sheet!$C:$C,0))
+//  sheet_article_summary.getRange(5,3).setFormula('=INDEX(input_sheet!$E:$E,match($D5,input_sheet!$C:$C,0))');
+
+
+//   // set sum product formula use last row of input_sheet
+//   sheet_article_summary.getRange(5,6).
+//     setFormula('=SUMPRODUCT((input_sheet!$G$6:$AO$' + last_row_input_sheet + ')*(input_sheet!$G$4:$AO$4=F$4)*($D5=(input_sheet!$C$6:$C$' + last_row_input_sheet + ')))');
+  
+  
+//   var row = 5;      
+//   var col = 4; //e.g. for column 2 ("B"), to obtain its last row
+
+//   SpreadsheetApp.flush()
+//   var Direction = SpreadsheetApp.Direction;
+
+//   SpreadsheetApp.flush()
+//   // var lastRow = sheet_article_summary.getRange(row,col).getNextDataCell(Direction.DOWN).getRow();//last row of column 'xcol'
+
+//   // Logger.log(lastRow);
+//   var fillRangeProductDescriptionLookup = sheet_article_summary.getRange(5,3,last_row_unique_scan_codes-4,1); // changing lastRow to last_row_unique_scan_codes
+//   sheet_article_summary.getRange('C5').copyTo(fillRangeProductDescriptionLookup);
+
+//   // fill sum product range based on row column 4 last row
+//   var fillRange = sheet_article_summary.getRange(5,6,last_row_unique_scan_codes-4,35); // changing lastRow to last_row_unique_scan_codes
+//    sheet_article_summary.getRange('F5').copyTo(fillRange);
+
+//    // total formulas
+
+//    sheet_article_summary.getRange('AP5').setFormula('=COUNTIFS(input_sheet!$C:$C,int($D5))'); 
+//    sheet_article_summary.getRange('AQ5').setFormula('=SUM(M5:Z5)'); 
+//    sheet_article_summary.getRange('AR5').setFormula('=SUM(AA5:AN5)'); 
+//    sheet_article_summary.getRange('AS5').setFormula('=AR5-AQ5');
+//    sheet_article_summary.getRange('AT5').setFormula('=IFERROR((AR5-AQ5)/AR5,0)');
+
+//   // actual formulas
+
+//    sheet_article_summary.getRange('AV5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,AV$3,$M$1:$AO$1,AV$4)');  //Monday
+//    sheet_article_summary.getRange('AW5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,AW$3,$M$1:$AO$1,AW$4)');  //T
+//    sheet_article_summary.getRange('AX5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,AX$3,$M$1:$AO$1,AX$4)');  //W
+//    sheet_article_summary.getRange('AY5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,AY$3,$M$1:$AO$1,AY$4)');  //T
+//    sheet_article_summary.getRange('AZ5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,AY$3,$M$1:$AO$1,AY$4)');  //F
+//    sheet_article_summary.getRange('BA5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,BA$3,$M$1:$AO$1,BA$4)');  //S
+//    sheet_article_summary.getRange('BB5').setFormula('=SUMIFS($M5:$AO5,$M$3:$AO$3,BB$3,$M$1:$AO$1,BB$4)');  //S
+//    sheet_article_summary.getRange('BC5').setFormula('=SUM(AV5:BB5)');                                      //TOTAL
+     
+//    // forecast formulas
+//    sheet_article_summary.getRange('BD5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BD$4)'); //Monday
+//    sheet_article_summary.getRange('BE5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BE$4)'); //T
+//    sheet_article_summary.getRange('BF5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BE$4)'); //W
+//    sheet_article_summary.getRange('BG5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BG$4)'); //T
+//    sheet_article_summary.getRange('BH5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BH$4)'); //F
+//    sheet_article_summary.getRange('BI5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BI$4)'); //S
+//    sheet_article_summary.getRange('BJ5').setFormula('=SUMIFS($AA5:$AN5,$AA$1:$AN$1,BJ$4)'); //S
+//    sheet_article_summary.getRange('BK5').setFormula('=SUM(BD5:BJ5)');                       //TOTAL
+
+//    var fillFormulaRange = sheet_article_summary.getRange(5,42,last_row_unique_scan_codes-4,63);  // changing lastRow to last_row_unique_scan_codes
+//    sheet_article_summary.getRange('AP5:BK5').copyTo(fillFormulaRange);
+
+
+// }
+// function checkFileExists() {
+
+//    var date = new Date();
+//    var fileDate = (Utilities.formatDate(startOfWeek(date),"NZ","yyyy-MM-dd") );
+//   //  var fileDate = "2023-01-30"
+//    var folder = DriveApp.getFolderById("1Wrp6gn0fy0qrtXsz9H_JLT-oK16VNS63");  // Slotting Board Output
+//    Logger.log(folder);
+
+//     var contents = folder.getFiles();
+
+//     var cnt = 0;
+//     var file;
+
+//     while (contents.hasNext()) {
+//         var file = contents.next();
+//         cnt++;
+
+        
+//         Logger.log(file.getName());
+//         Logger.log(cnt);
+
+//         if(file.getName() == "Produce Forecast "+ fileDate){
+//               Logger.log("Yes forecast file exists")
+//               break
+
+//         }
+
+
+
+//     };
+    
+// };
+
+
+
+// function cloneGoogleSheet() {
+  
+//    date = new Date();
+//    fileDate = (Utilities.formatDate(startOfWeek(date),"NZ","yyyy-MM-dd") );
+//    console.log(fileDate);
+//   var drive_folder_id = "1Wrp6gn0fy0qrtXsz9H_JLT-oK16VNS63";
+//   var nFolder = drive_folder_id;
+//   var destFolder = DriveApp.getFolderById(drive_folder_id); 
+//   var nFile = DriveApp.getFileById("1X1jYav5L-Q9XRdTX7aeX9jk6xUIxWO6QvRxdLVmFwb8").makeCopy("Produce Forecast " + fileDate, destFolder).getId(); 
+//   console.log(nFile);  
+
+//   // var ss = SpreadsheetApp.openById(nFile);
+//   // var sheet_article_summary = ss.getSheetByName("article_summary")
+//   // sheet_article_summary.getRange("B:C")
+
+
+
+//  // copy paste values in sheets
+
+//   var ss = SpreadsheetApp.openById(nFile);
+//   var sheet = ss.getSheetByName("input_sheet")
+//   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).activate();
+//   sheet = ss.getActiveSheet();
+//   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).copyTo(sheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+//   sheet.getRange('C6').activate();
+
+//   var sheet = ss.getSheetByName("List")
+//   sheet.getRange("A:H").copyTo(sheet.getRange("A:H"), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+  
+
+//   var sheet = ss.getSheetByName("SourceData")
+//   sheet.getRange("O:S").copyTo(sheet.getRange("O:S"), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+  
+
+//   var sheet = ss.getSheetByName("article_summary")
+  
+//   sheet.getRange("C:Z").copyTo(sheet.getRange("C:Z"),SpreadsheetApp.CopyPasteType.PASTE_VALUES,false);
+//   sheet.getRange('4:4').setNumberFormat('dd/MM/yyyy');
+
+//   var sheet = ss.getSheetByName("input_sheet")
+//   sheet.getRange('B:B').setNumberFormat('dd/MM/yyyy');
+
+
+//   // var lastrow = ss.getSheetByName("article_summary").getLastRow(); // get last row of article summary
+
+//   // ss.getSheetByName("article_summary").getRange('C4:BK' + lastrow).createFilter();   // create filter
+//   // ss.getSheetByName("article_summary").getActiveSheet().getFilter().sort(43, false); // flter by actual
+
+
+
+//   // convertSheetToXLSX(nFile,nFolder,fileDate)
+
+//   // ss.deleteSheet()
+//   // ss.deleteSheet
+//   // SpreadsheetApp.flush();
+
+//   // var List_sheet = ss.getSheetByName("List");
+//   // List_sheet.clearContents()
+  
+//   // SpreadsheetApp.flush();
+
+//   delete_sheet("SourceData",nFile);
+//   // delete_sheet("List",nFile);
+//   // delete_sheet("cSrc",nFile);
+
+//   // var SourceData_sheet = ss.getSheetByName("SourceData");
+//   // var cSrc_sheet = ss.getSheetByName("List");
+//   // ss.deleteSheet(SourceData_sheet);
+//   // ss.deleteSheet(cSrc_sheet);
+//   // SpreadsheetApp.flush();
+
+//   // var cSrc_sheet = ss.getSheetByName("cSrc");
+//   // ss.deleteSheet(cSrc_sheet);
+//   // SpreadsheetApp.flush();
+
+  
+  
+  
+
+
+// }
+
+// function delete_sheet(sheetname,nFile){
+// try{
+// var ss = SpreadsheetApp.openById(nFile);
+// var sheet_to_delete = SpreadsheetApp.getActive().getSheetByName(sheetname);
+// ss.deleteSheet(sheet_to_delete)
+// }
+// catch
+// {
+// var ss  = SpreadsheetApp.getActiveSpreadsheet();
+// Logger.log(sheetname);
+// var sheet_to_hide = ss.getSheetByName(sheetname).clearContents();
+// sheet_to_hide.hideSheet();
+
+// }
+
+// }
+
+
+
+
+// function convertSheetToXLSX(nFile,nFolder,fileDate) {
+//   var sheetId = nFile;
+//   var spreadsheetName = "Produce Forecast";
+//   var destination = DriveApp.getFolderById(nFolder);
+//   var url = "https://docs.google.com/feeds/download/spreadsheets/Export?key=" + sheetId + "&exportFormat=xlsx";  
+//   var params = {
+//     method      : "get",
+//     headers     : {"Authorization": "Bearer " + ScriptApp.getOAuthToken()},
+//     muteHttpExceptions: true
+//   };
+//   var blob = UrlFetchApp.fetch(url, params).getBlob();
+//   blob.setName(spreadsheetName +" "+ fileDate + ".xlsx");
+//   destination.createFile(blob);
+// }
+
+
+// function delete_old_sheets(){
+
+// var ss = SpreadsheetApp.getActiveSheet();
+
+// // delete source data
+// var SourceData_sheet = ss.getSheetName("SourceData");
+// ss.deleteSheet(SourceData_sheet);
+
+// // delete source sheet
+// var cSrc_sheet = ss.getSheetByName("cSrc");
+// ss.deleteSheet(cSrc_sheet);
+// SpreadsheetApp.flush();
+
+// // delete list sheet
+// var cSrc_sheet = ss.getSheetByName("List");
+// ss.deleteSheet(cSrc_sheet);
+// SpreadsheetApp.flush();
+
+// }
+
+
+
+
+
+
+
