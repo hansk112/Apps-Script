@@ -1,0 +1,78 @@
+SpreadsheetAppfunction getGoogleSpreadsheetAsExcel(){
+  var spreadsheet = SpreadsheetApp.getActive();
+  
+    // refresh connected sheets and extract
+  SpreadsheetApp.enableAllDataSourcesExecution();
+  spreadsheet.refreshAllDataSources();
+  try {
+
+    var ss = SpreadsheetApp.getActive();
+    var date = Utilities.formatDate(new Date(), "Pacific/Auckland", "dd/MM/yyyy")
+//    var aSpread =  ss.enableAllDataSourcesExecution();
+    var destination = DriveApp.getFolderById('1wRqCMkIrCWbfeJVkcydkjghkTmTnlfc4');  
+    var url = "https://docs.google.com/feeds/download/spreadsheets/Export?key=" + ss.getId() + "&exportFormat=xlsx";
+    var params = {
+      method      : "get",
+      headers     : {"Authorization": "Bearer " + ScriptApp.getOAuthToken()},
+      muteHttpExceptions: true
+    };
+
+    var blob = UrlFetchApp.fetch(url, params).getBlob();
+
+    blob.setName("Meat Xmas "+date + ".xlsx");
+
+//    MailApp.sendEmail("hans.kalders@countdown.co.nz", "Google Sheet to Excel", "The XLSX file is attached", {attachments: [blob]});
+    destination.createFile(blob);
+    
+  } catch (f) {
+    Logger.log(f.toString());
+  
+}
+
+  
+}
+  
+function createTriggerSave(){
+  ScriptApp.newTrigger("getGoogleSpreadsheetAsExcel")
+  .timeBased()
+  .inTimezone("Pacific/Auckland")
+  .everyDays(1)
+  .atHour(20)
+  .nearMinute(59)
+  
+  .create()
+  
+}
+
+function createRefreshTrigger (){
+ScriptApp.newTrigger("refresh")
+.timeBased()
+.inTimezone("Pacific/Auckland")
+.everyDays(1)
+.atHour(8)
+.nearMinute(10)
+
+.create()
+
+}
+
+
+
+function refresh(){
+  SpreadsheetApp.enableAllDataSourcesExecution();
+  var sh = SpreadsheetApp.getActive();
+  sh.refreshAllDataSources();
+  
+}
+
+
+/*
+connect to bigquery and execute trigger when true
+
+SELECT
+current_datetime("Pacific/Auckland")>=last_refreshed
+
+FROM `gcp-wow-food-de-pel-prod.consume.table_refresh_status` 
+where table_name='sales_receipt_line'
+
+*/
