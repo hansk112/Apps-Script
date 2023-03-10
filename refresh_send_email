@@ -1,0 +1,98 @@
+function wdl_weekly_table_update() {
+
+ refresh() 
+  
+var sheet = SpreadsheetApp.openById('1A8wUQqmpHPKjCMJjqZg6Zrg4CJKua6zCPq8RVYSsH6E').getSheetByName('Current_Week');
+var pel_wk = sheet.getRange('A7').getValue();
+
+var spreadsheet = SpreadsheetApp.getActive();
+
+spreadsheet.insertSheet();
+spreadsheet.getActiveSheet().setName(pel_wk);
+
+spreadsheet.getRange('\'Current_Week\'!C4:U111').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+spreadsheet.getRange('\'Current_Week\'!C4:U111').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+spreadsheet.getRange('\'Current_Week\'!C4:U111').copyTo(spreadsheet.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
+
+
+}
+
+
+function refresh() {
+  
+  SpreadsheetApp.enableAllDataSourcesExecution();
+  
+  var sh = SpreadsheetApp.getActive();
+  sh.refreshAllDataSources();
+  
+}
+
+
+function email_WDL_weekly_sales(){
+
+refresh();
+
+var ws = SpreadsheetApp.openById('1A8wUQqmpHPKjCMJjqZg6Zrg4CJKua6zCPq8RVYSsH6E').getSheetByName('Current_Week');
+
+//christmas-seasonal
+ GmailApp.sendEmail("wdl-daily-sales@countdown.co.nz","BETA WDL Regional Daily Retail Sales ", "Please open in client that supports HTML",{   
+                            htmlBody: SheetConverter.convertRange2html(ws.getRange('D5:M109'))
+                       //     ,name: "Analytics & Insights" 
+                       //     ,
+                       //     from: aliases[0],bcc:"hans.kalders@countdown.co.nz"
+                            });
+
+}
+
+
+function email_WDL_weekly_department_sales(){
+
+refresh();
+
+var ws = SpreadsheetApp.openById('1A8wUQqmpHPKjCMJjqZg6Zrg4CJKua6zCPq8RVYSsH6E').getSheetByName('Current_Week');
+
+//christmas-seasonal
+ GmailApp.sendEmail("wdl-daily-sales@countdown.co.nz"," BETA WDL Department Daily Retail Sales ", "Please open in client that supports HTML",{   
+                            htmlBody: SheetConverter.convertRange2html(ws.getRange('O5:U67'))
+                       //     ,name: "Analytics & Insights" 
+                       //     ,
+                       //     from: aliases[0],bcc:"hans.kalders@countdown.co.nz"
+                            });
+
+}
+
+// trigger refresh at 8.15am
+
+function createRefreshrTriggerWDL() {
+ScriptApp.newTrigger('refresh') 
+ .timeBased()
+ .atHour(8)
+ .nearMinute(15)
+ .everyDays(1)
+ .create();
+ 
+}
+
+// trigger refresh at 8.30am
+
+function createDepartmentSalesTriggerWDL() {
+ScriptApp.newTrigger('email_WDL_weekly_department_sales') 
+ .timeBased()
+ .atHour(8)
+ .nearMinute(32)
+ .everyDays(1)
+ .create();
+ 
+}
+
+// trigger refresh at 8.30am
+
+function createRegionalSalesTriggerWDL() {
+ScriptApp.newTrigger('email_WDL_weekly_sales') 
+ .timeBased()
+ .atHour(8)
+ .nearMinute(28)
+ .everyDays(1)
+ .create();
+ 
+}
