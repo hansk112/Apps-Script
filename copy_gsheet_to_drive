@@ -1,0 +1,26 @@
+function copySheetToFolder() {
+  try {
+    // Replace with the ID of the sheet you want to copy
+    var sourceSheetId = 'YOUR_SHEET_ID';
+    // Replace with the ID of the folder you want to save the copy to
+    var destinationFolderId = 'YOUR_FOLDER_ID';
+
+    // Get the source sheet
+    var sourceSheet = SpreadsheetApp.openById(sourceSheetId);
+
+    // Create a copy of the sheet
+    var copiedSheet = sourceSheet.copy('Copy of ' + sourceSheet.getName());
+
+    // Get the destination folder
+    var destinationFolder = DriveApp.getFolderById(destinationFolderId);
+
+    // Move the copied sheet to the destination folder
+    var copiedFile = DriveApp.getFileById(copiedSheet.getId());
+    copiedFile.getParents().next().removeFile(copiedFile);
+    destinationFolder.addFile(copiedFile);
+
+    Logger.log('Sheet copied and moved successfully.');
+  } catch (error) {
+    Logger.log('An error occurred: ' + error.message);
+  }
+}
